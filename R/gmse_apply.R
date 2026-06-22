@@ -1903,7 +1903,7 @@ check_name_results <- function(output, vec_name, mat_name, the_fun){
         }
     }
     if(error == TRUE){
-        emess <- paste("ERROR: I can't make sense of the output of the output
+        emess <- paste("ERROR: I can't make sense of the output
                        from the function ", which_fun, "-- Need to either have
                        no name, or clearly label as described in docs");
         stop(emess);
@@ -2571,10 +2571,10 @@ prep_man <- function(arg_list, man_mod){
 }
 
 get_old_costs <- function(arg_list){
-    cols_cost   <- dim(arg_list[["COST"]])[2];
+    cols_cost   <- dim(arg_list[["COST"]])[2]; # Currently unused
     lays_cost   <- dim(arg_list[["COST"]])[3];
-    user_places <- which(arg_list[["AGENTS"]][, 2] > 0);
-    old_costs   <- sum(arg_list[["COST"]][, 8:cols_cost, user_places]);
+    user_places <- which(arg_list[["AGENTS"]][, 2] > 0);# Currently unused
+    old_costs   <- sum(arg_list[["COST"]][, 8:cols_cost, user_places]); # Currently unused
     if( is.null(arg_list[["basic_output"]]) == FALSE ){
         al_bo_mr     <- arg_list[["basic_output"]][["manager_results"]][1, 2:6];
         cost_vector  <- as.vector(al_bo_mr);
@@ -2594,11 +2594,18 @@ get_old_actions <- function(arg_list){
         act_vector  <- as.vector(tot_actions[2:6]);
         act_vector[is.na(act_vector)] <- 0;
         arg_list[["ACTION"]][1,8:12,2] <- act_vector;
-        al_bo_mr   <- arg_list[["basic_output"]][["manager_results"]][1, 2:6];
-        man_vector <- as.vector(al_bo_mr);
-        man_vector[is.na(man_vector)]  <- arg_list[["GMSE"]][["minimum_cost"]];
-        arg_list[["ACTION"]][3,8:13,1] <- c(man_vector, 
-                                          arg_list[["GMSE"]][["minimum_cost"]]);
+        # Updated: the following part should now update the action array with the old manager policy in a more dynamic way, by first locating the correct row rather than being hardcoded to update row 3
+        al_bo_mr   <- arg_list[["basic_output"]][["manager_results"]];
+        for(i in 1:nrow(al_bo_mr)){ 
+            bo_mr_type <- al_bo_mr[i,1] # Resource type
+            bo_mr_costs <- al_bo_mr[i, 2:6] # Costs 
+            man_vector <- as.vector(bo_mr_costs)
+            man_vector[is.na(man_vector)]  <- arg_list[["GMSE"]][["minimum_cost"]];
+            target_row <- which (arg_list[["ACTION"]][,1,1] == 1 &
+                                     arg_list[["ACTION"]][,2,1] == bo_mr_type)
+            arg_list[["ACTION"]][target_row, 8:13, 1] <- c(man_vector,
+                                                           arg_list[["GMSE"]][["minimum_cost"]]) # If there are multiple type 1 rows (e.g. when using col 3 and 4 too, they should all get the same value right now?)
+        }
     }
     return(arg_list);
 }
