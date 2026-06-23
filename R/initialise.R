@@ -339,6 +339,7 @@ make_costs <- function(AGENTS, RESOURCES, res_opts, lnd_opts, min_cost){
     agent_IDs     <- c(-2, -1, unique(AGENTS[,1]) );
     agent_number  <- length(agent_IDs);
     res_types     <- unique(RESOURCES[,2:4]);
+    res_types     <- res_types[order(res_types[,1], res_types[,2], res_types[,3]),, drop = FALSE]; # Not really necessary now but might avoid problems in further versions? 
     
     COST_LIST <- NULL;
     
@@ -391,6 +392,7 @@ make_utilities <- function(AGENTS, RESOURCES){
     agent_IDs     <- c(-2, -1, unique(AGENTS[,1]) );
     agent_number  <- length(agent_IDs);
     res_types     <- unique(RESOURCES[,2:4]);
+    res_types     <- res_types[order(res_types[,1], res_types[,2], res_types[,3]),, drop = FALSE]
     
     UTIL_LIST <- NULL;
     
@@ -467,6 +469,7 @@ make_interaction_array <- function(RESOURCES, LAND, res_consume = 0.5,
                                    consume_surv = 0, consume_repr = 0, 
                                    times_feeding = 1){
     resource_types  <- unique(RESOURCES[,2:4]);
+    resource_types  <- resource_types[order(resource_types[,1], resource_types[,2], resource_types[,3]),, drop = FALSE];
     resource_count  <- dim(resource_types)[1];
     landscape_count <- dim(LAND)[3] - 2; # Maybe put all of them in later?
     total_dims      <- resource_count + landscape_count;
@@ -489,14 +492,18 @@ make_interaction_array <- function(RESOURCES, LAND, res_consume = 0.5,
     
     mn_land            <- 1; # mean(LAND[,, 2]);
     E_consumed         <- mn_land * (1 - (1 - res_consume)^times_feeding);
-    
-    INTERACTIONS[1, 2] <- -1 * E_consumed;
-    
     consuming_repr     <- floor(E_consumed * consume_repr);
     consuming_survival <- E_consumed - consume_surv;
     # Note, currently reproduction happens before survival
-    INTERACTIONS[2, 1] <- consuming_repr + consuming_survival;          
-    
+ 
+    # Dynamic multi-species update
+    for(res_pos in 1:resource_count){ # position of the resource type row and col
+        for(land_id in 1:landscape_count){
+            land_pos <- resource_count + land_id; # position of the landscape row and col
+            INTERACTIONS[res_pos,land_pos]    <- -1 * E_consumed; # res type row, land col; effect of resource type on landscape
+            INTERACTIONS[land_pos, res_pos]   <- consuming_repr + consuming_survival; # land row, res type col; effect of landscape on resource type
+        }
+    }
     return(INTERACTIONS);
 }
                                    
@@ -512,6 +519,7 @@ make_interaction_array <- function(RESOURCES, LAND, res_consume = 0.5,
 make_interaction_table <- function(RESOURCES, LAND){
     
     resource_types      <- unique(RESOURCES[,2:4]);
+    resource_types      <- resource_types[order(resource_types[,1], resource_types[,2], resource_types[,3]),, drop = FALSE];
     resource_part       <- matrix(data=0, nrow=dim(resource_types)[1], ncol=4);
     resource_part[,2:4] <- resource_types;
     
