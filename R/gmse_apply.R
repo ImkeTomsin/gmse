@@ -2531,18 +2531,20 @@ set_action_array <- function(arg_list){
         mbpos          <- which(arg_name == "manager_budget");
         manager_budget <- arg_list[[mbpos]];
     }
-    stakeholder_rows             <- 2:dim(ACTION)[3];
-    manager_row                  <- 1;
-    ACTION[1, 5, manager_row]    <- manage_target;
-    ACTION[3, 5:7 , manager_row] <- 0;
+    stakeholder_layers             <- 2:dim(ACTION)[3];
+    manager_layer                  <- 1;
+    target_rows <- which(ACTION[, 1, manager_layer] == -2); # Currently assigns same manage target to all resource types
+    manager_rows <- which(ACTION[,1,manager_layer] == 1)
+    ACTION[target_rows, 5, manager_layer] <- manage_target;
+    ACTION[manager_rows, 5:7 , manager_layer] <- 0;
     if(land_ownership == TRUE){ # Set up utilities for land owning farmers
-        ACTION[1, 5, stakeholder_rows]   <- 0;
-        ACTION[2, 5, stakeholder_rows]   <- 100;
-        ACTION[1, 6:7, stakeholder_rows] <- 1;
-        ACTION[2, 6:7, stakeholder_rows] <- 1;
+        ACTION[1, 5, stakeholder_layers]   <- 0;
+        ACTION[2, 5, stakeholder_layers]   <- 100;
+        ACTION[1, 6:7, stakeholder_layers] <- 1;
+        ACTION[2, 6:7, stakeholder_layers] <- 1;
     }else{                      # Set up utilities for hunters of resources
-        ACTION[1, 5, stakeholder_rows]   <- -1;
-        ACTION[2, 5, stakeholder_rows]   <- 0;
+        ACTION[1, 5, stakeholder_layers]   <- -1; # Currently assigns utility of -1 only to resource type 1, yet even with utility = 0, resource type 2 gets hunted, making me think that utility is not properly taken into account possibly?
+        ACTION[2, 5, stakeholder_layers]   <- 0;
     }
     arg_list[[agent_pos]][,17]     <- user_budget;
     arg_list[[agent_pos]][1,17]    <- manager_budget;
@@ -2576,10 +2578,17 @@ get_old_costs <- function(arg_list){
     user_places <- which(arg_list[["AGENTS"]][, 2] > 0);# Currently unused
     old_costs   <- sum(arg_list[["COST"]][, 8:cols_cost, user_places]); # Currently unused
     if( is.null(arg_list[["basic_output"]]) == FALSE ){
-        al_bo_mr     <- arg_list[["basic_output"]][["manager_results"]][1, 2:6];
-        cost_vector  <- as.vector(al_bo_mr);
-        cost_vector[is.na(cost_vector)] <- 100001;
-        arg_list[["COST"]][1, 8:12, 2:lays_cost] <- cost_vector;
+        
+        al_bo_mr     <- arg_list[["basic_output"]][["manager_results"]];
+        for(i in 1:nrow(al_bo_mr)){ 
+            bo_mr_type <- al_bo_mr[i,1] # Resource type
+            bo_mr_costs <- al_bo_mr[i, 2:6] # Costs 
+            cost_vector <- as.vector(bo_mr_costs)
+            cost_vector[is.na(cost_vector)]  <- 100001;
+            target_row <- which (arg_list[["ACTION"]][,1,2] == -2 &
+                                     arg_list[["ACTION"]][,2,2] == bo_mr_type)
+            arg_list[["COST"]][target_row, 8:12, 2:lays_cost] <- cost_vector
+        }
     }
     return(arg_list);
 }
@@ -2594,7 +2603,7 @@ get_old_actions <- function(arg_list){
         act_vector  <- as.vector(tot_actions[2:6]);
         act_vector[is.na(act_vector)] <- 0;
         arg_list[["ACTION"]][1,8:12,2] <- act_vector;
-        # Updated: the following part should now update the action array with the old manager policy in a more dynamic way, by first locating the correct row rather than being hardcoded to update row 3
+        # Updated: the following part should now update the action array with the old manager policy in a more dynamic way, by first locating the correct row rather than being hardcoded to update row 3 (only works for type_1)
         al_bo_mr   <- arg_list[["basic_output"]][["manager_results"]];
         for(i in 1:nrow(al_bo_mr)){ 
             bo_mr_type <- al_bo_mr[i,1] # Resource type
